@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>エキシデンサー 費用負担シミュレータ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Webフォントは質感向上のためのenhancement。オフライン時はsystemフォントにフォールバックして動作します（iPad現場運用想定） -->
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 構造色（GSK） */
+  --navy:#1B2A4A; --blue:#003DA5; --orange:#F37021;
+  /* 状態色 */
+  --green:#2E9E6B; --amber:#C79A00; --slate:#5B6B86; --red:#C0392B;
+  /* ニュートラル */
+  --ink:#1C2433; --muted:#6B7686; --line:#DDE3EC; --bg:#F4F7FB; --surface:#FFFFFF;
+  /* 角丸・影 */
+  --radius:12px;
+  --shadow-card:0 1px 2px rgba(27,42,74,.06), 0 8px 24px rgba(27,42,74,.06);
+  --font:"IBM Plex Sans JP","Noto Sans JP","Meiryo","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font);
+  background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased;
+  font-size:15px; line-height:1.5;
+}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
+.app{max-width:1180px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
+
+/* ---- top bar ---- */
+.topbar{background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 24px;border-bottom:3px solid var(--orange)}
+.brand{font-weight:700;font-size:19px;letter-spacing:.04em;display:flex;align-items:baseline;gap:12px}
+.brand b{color:var(--orange);font-size:21px;letter-spacing:.08em}
+.brand span{font-weight:400;font-size:14px;opacity:.86;letter-spacing:.02em}
+.gsk{font-weight:800;font-size:15px;letter-spacing:.12em;border:1.5px solid rgba(255,255,255,.5);
+  padding:3px 9px;border-radius:3px}
+
+/* ---- mode tabs ---- */
+.modebar{display:flex;gap:0;background:var(--surface);border-bottom:1px solid var(--line);padding:0 18px}
+.modebtn{flex:0 0 auto;background:none;border:none;cursor:pointer;font-family:inherit;
+  font-size:15px;font-weight:700;color:var(--muted);padding:15px 22px;border-bottom:3px solid transparent;
+  margin-bottom:-1px;transition:color .12s}
+.modebtn.active{color:var(--navy);border-bottom-color:var(--navy)}
+.modebtn:focus-visible{outline:3px solid var(--blue);outline-offset:-3px;border-radius:6px}
+
+/* ---- body ---- */
+.body{flex:1;display:flex;gap:0}
+.inputs{flex:0 0 40%;padding:24px;border-right:1px solid var(--line);background:var(--surface)}
+.results{flex:1;padding:24px 26px;min-width:0}
+@media(max-width:820px){
+  .body{flex-direction:column}
+  .inputs{flex:none;border-right:none;border-bottom:1px solid var(--line)}
+}
+.field{margin-bottom:22px}
+.field.hidden{display:none}
+.field>label{display:block;font-size:13px;font-weight:700;color:var(--muted);
+  letter-spacing:.04em;margin-bottom:9px}
+
+/* segmented control */
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden;background:#f4f6f9}
+.seg button{background:none;border:none;cursor:pointer;font-family:inherit;font-size:15px;font-weight:700;
+  color:var(--navy);padding:11px 20px;min-height:46px;transition:background .12s,color .12s,transform .12s}
+.seg button.on{background:var(--blue);color:#fff}
+.seg button:active:not(:disabled){transform:scale(.96)}
+.seg button:disabled{color:#bcc4d2;cursor:not-allowed}
+.seg button:focus-visible{outline:3px solid var(--blue);outline-offset:-3px}
+
+/* chips */
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;cursor:pointer;font-family:inherit;
+  padding:9px 14px;min-height:48px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+  transition:border-color .12s,background .12s,transform .12s}
+.chip .k{font-size:15px;font-weight:700;color:var(--navy);line-height:1.15}
+.chip .s{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.1}
+.chip.on{background:var(--blue);border-color:var(--blue)}
+.chip.on .k,.chip.on .s{color:#fff}
+.chip:active:not(:disabled){transform:scale(.97)}
+.chip:disabled{opacity:.4;cursor:not-allowed}
+.chip:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+
+/* ---- results ---- */
+.placeholder{height:100%;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--muted);text-align:center;gap:12px}
+.placeholder .big{font-size:46px;line-height:1;color:var(--line)}
+.placeholder p{margin:0;font-size:14px;max-width:260px}
+
+.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;
+  margin-bottom:14px;box-shadow:var(--shadow-card)}
+.rlabel{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:3px}
+.rsub{font-size:13px;color:var(--ink);margin-bottom:8px}
+.ramt{font-size:30px;font-weight:800;color:var(--navy);letter-spacing:.01em}
+.ramt .yen{font-size:18px;font-weight:700;margin-right:1px}
+
+/* ---- The Drop visualization ---- */
+.drop{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 18px 12px;margin-bottom:14px;box-shadow:var(--shadow-card)}
+.drop-cap{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:14px}
+.bars{display:flex;align-items:flex-end;gap:18px;height:188px;padding-top:22px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;min-width:0}
+.bar .track{position:relative;width:100%;max-width:96px;height:100%;display:flex;align-items:flex-end}
+.seg-fill{position:absolute;left:0;right:0;max-width:96px;margin:0 auto;border-radius:6px 6px 0 0;
+  height:0;transition:height .5s cubic-bezier(.22,.61,.36,1)}
+.seg-fill.base{background:var(--slate)}
+.seg-fill.now{background:var(--navy)}
+.seg-fill.cut{background:repeating-linear-gradient(135deg,rgba(243,112,33,.92),rgba(243,112,33,.92) 9px,rgba(243,112,33,.74) 9px,rgba(243,112,33,.74) 18px)}
+.seg-fill.up{background:var(--red);opacity:.9}
+.bar-val{font-size:13px;font-weight:800;color:var(--navy);margin-top:8px;text-align:center;line-height:1.15}
+.bar-val .yen{font-size:10px}
+.bar-lab{font-size:11px;color:var(--muted);margin-top:3px;text-align:center;line-height:1.2}
+.bar-top{position:absolute;left:0;right:0;text-align:center;transform:translateY(-100%);
+  font-size:11px;font-weight:800}
+.bar-top.cut{color:var(--orange)} .bar-top.up{color:var(--red)}
+
+/* ---- After card ---- */
+.after .rows{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.arow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:7px 0}
+.awhen{font-size:13.5px;font-weight:700;color:var(--ink);flex:0 0 auto}
+.aamt{font-size:24px;font-weight:800;color:var(--navy);margin-left:auto}
+.aamt .yen{font-size:15px}
+.badge{font-size:11px;font-weight:700;color:#fff;border-radius:20px;padding:3px 10px;white-space:nowrap}
+.badge.g2{background:var(--green)} .badge.q1{background:var(--amber)} .badge.r0{background:var(--slate)}
+.brk{font-size:11.5px;color:var(--muted);padding:3px 0 8px;border-bottom:1px dashed var(--line)}
+.brk:last-child{border-bottom:none}
+
+/* ---- savings hero ---- */
+.save{background:var(--navy);border-radius:var(--radius);padding:18px 20px;color:#fff;margin-top:4px;
+  box-shadow:var(--shadow-card)}
+.save h3{margin:0 0 12px;font-size:13px;font-weight:700;letter-spacing:.06em;opacity:.92;
+  display:flex;align-items:center;gap:10px}
+.save h3::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.2)}
+.srow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:7px 0}
+.srow .when{font-size:14px;font-weight:700;opacity:.95}
+.srow.lead .when{font-size:15px}
+.save-amt{font-weight:800;letter-spacing:.01em;margin-left:auto}
+.save-amt .yen{font-size:.62em}
+.save-amt.down{color:#ffd9bf;font-size:22px}
+.srow.lead .save-amt.down{color:var(--orange);font-size:34px}
+.save-amt.up{color:#ff9b8e;font-size:22px}
+.srow.lead .save-amt.up{font-size:30px}
+.save-amt.flat{opacity:.7;font-size:20px}
+.snote{font-size:11.5px;opacity:.8;margin-top:10px;line-height:1.55}
+
+/* ---- naive hero ---- */
+.naive-hero{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:26px 22px;
+  text-align:center;box-shadow:var(--shadow-card)}
+.naive-hero .nl{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.05em}
+.naive-hero .nbig{font-size:50px;font-weight:800;color:var(--navy);margin:8px 0 2px;letter-spacing:.01em}
+.naive-hero .nbig .yen{font-size:28px;font-weight:700}
+.naive-hero .nper{font-size:13.5px;color:var(--ink)}
+.naive-hero .nnote{font-size:11.5px;color:var(--muted);margin-top:14px;border-top:1px solid var(--line);
+  padding-top:12px;line-height:1.55}
+
+/* ---- footer ---- */
+.botbar{background:var(--navy);color:rgba(255,255,255,.62);font-size:11px;line-height:1.6;
+  padding:12px 24px;margin-top:14px}
+.botbar b{color:rgba(255,255,255,.85);font-weight:700}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><b>EXDENSUR</b><span>費用負担シミュレータ</span></div>
+    <div class="gsk">GSK</div>
+  </header>
+  <nav class="modebar" role="tablist" aria-label="モード切替">
+    <button class="modebtn active" data-mode="switch" role="tab" aria-selected="true">他剤から切り替え</button>
+    <button class="modebtn" data-mode="naive" role="tab" aria-selected="false">新規（ナイーブ）導入</button>
+  </nav>
+  <div class="body">
+    <section class="inputs">
+      <div class="field"><label id="lbl-age">年齢</label><div class="seg" id="ageSeg" role="group" aria-labelledby="lbl-age"></div></div>
+      <div class="field"><label id="lbl-kubun">適応区分（年収の目安）</label><div class="btnrow" id="kubunRow" role="group" aria-labelledby="lbl-kubun"></div></div>
+      <div class="field drugField"><label id="lbl-drug">現在の薬剤</label><div class="btnrow" id="drugRow" role="group" aria-labelledby="lbl-drug"></div></div>
+      <div class="field intervalField"><label id="lbl-iv">処方間隔</label><div class="seg" id="intervalSeg" role="group" aria-labelledby="lbl-iv"></div></div>
+    </section>
+    <section class="results" id="results" aria-live="polite"></section>
+  </div>
+  <footer class="botbar">
+    <b>算定根拠</b>：高額療養費制度・在宅自己注射管理料（エキシデンサーは院内投与のため算定なし）に基づく当該薬剤のみの年間自己負担。エキシデンサーは26週ごと（年2回）投与。多数回該当の「引き継ぎ」は切り替え前の処方間隔から、初年度に継続される多数回該当の回数（隔月以下＝2回／3ヶ月ごと＝1回）を反映。他の医療費との世帯合算・保険者独自の付加給付・自治体助成・指定難病助成は考慮していません。実際の負担額は保険者の判断等により異なる場合があります。
+  </footer>
+</div>
+<script>
+const DATA = {"income": {"69": {"ア": "年収約1,160万円〜", "イ": "約770〜1,160万円", "ウ": "約370〜770万円", "エ": "〜約370万円", "オ": "住民税非課税"}, "70": {"現役並みⅢ": "年収約1,160万円〜", "現役並みⅡ": "約770〜1,160万円", "現役並みⅠ": "約370〜770万円", "一般": "約156〜370万円", "非課税": "住民税非課税"}}, "kubunOrder": {"69": ["ア", "イ", "ウ", "エ", "オ"], "70": ["現役並みⅢ", "現役並みⅡ", "現役並みⅠ", "一般", "非課税"]}, "drugs": {"テゼスパイア": ["1ヶ月", "2ヶ月", "3ヶ月"], "ファセンラ": ["2ヶ月"], "デュピクセント": ["1ヶ月", "2ヶ月", "3ヶ月"], "ヌーカラ": ["1ヶ月", "2ヶ月", "3ヶ月"]}, "exi": {"69": {"ア": {"normalDose": 255613, "taDose": 140100}, "イ": {"normalDose": 173253, "taDose": 93000}, "ウ": {"normalDose": 88863, "taDose": 44400}, "エ": {"normalDose": 57600, "taDose": 44400}, "オ": {"normalDose": 35400, "taDose": 24600}}, "70": {"現役並みⅢ": {"normalDose": 255613, "taDose": 140100}, "現役並みⅡ": {"normalDose": 173253, "taDose": 93000}, "現役並みⅠ": {"normalDose": 88863, "taDose": 44400}, "一般": {"normalDose": 18000, "taDose": null}, "非課税": {"normalDose": 8000, "taDose": null}}}, "before": {"69": {"ア": {"テゼスパイア": {"1ヶ月": {"val": 615553, "cat": "r0"}, "2ヶ月": {"val": 627253, "cat": "r0"}, "3ヶ月": {"val": 623353, "cat": "r0"}}, "ファセンラ": {"2ヶ月": {"val": 603556, "cat": "r0"}}, "デュピクセント": {"1ヶ月": {"val": 438040, "cat": "r0"}, "2ヶ月": {"val": 398045, "cat": "r0"}, "3ヶ月": {"val": 394145, "cat": "r0"}}, "ヌーカラ": {"1ヶ月": {"val": 575608, "cat": "r0"}, "2ヶ月": {"val": 587308, "cat": "r0"}, "3ヶ月": {"val": 583408, "cat": "r0"}}}, "イ": {"テゼスパイア": {"1ヶ月": {"val": 615553, "cat": "r0"}, "2ヶ月": {"val": 627253, "cat": "r0"}, "3ヶ月": {"val": 623353, "cat": "r0"}}, "ファセンラ": {"2ヶ月": {"val": 603556, "cat": "r0"}}, "デュピクセント": {"1ヶ月": {"val": 438040, "cat": "r0"}, "2ヶ月": {"val": 398045, "cat": "r0"}, "3ヶ月": {"val": 394145, "cat": "r0"}}, "ヌーカラ": {"1ヶ月": {"val": 575608, "cat": "r0"}, "2ヶ月": {"val": 587308, "cat": "r0"}, "3ヶ月": {"val": 583408, "cat": "r0"}}}, "ウ": {"テゼスパイア": {"1ヶ月": {"val": 615553, "cat": "r0"}, "2ヶ月": {"val": 266400, "cat": "g2"}, "3ヶ月": {"val": 177600, "cat": "q1"}}, "ファセンラ": {"2ヶ月": {"val": 266400, "cat": "g2"}}, "デュピクセント": {"1ヶ月": {"val": 386345, "cat": "r0"}, "2ヶ月": {"val": 398045, "cat": "r0"}, "3ヶ月": {"val": 177600, "cat": "q1"}}, "ヌーカラ": {"1ヶ月": {"val": 575608, "cat": "r0"}, "2ヶ月": {"val": 266400, "cat": "g2"}, "3ヶ月": {"val": 177600, "cat": "q1"}}}, "エ": {"テゼスパイア": {"1ヶ月": {"val": 615553, "cat": "r0"}, "2ヶ月": {"val": 266400, "cat": "g2"}, "3ヶ月": {"val": 177600, "cat": "q1"}}, "ファセンラ": {"2ヶ月": {"val": 266400, "cat": "g2"}}, "デュピクセント": {"1ヶ月": {"val": 386345, "cat": "r0"}, "2ヶ月": {"val": 266400, "cat": "g2"}, "3ヶ月": {"val": 177600, "cat": "q1"}}, "ヌーカラ": {"1ヶ月": {"val": 575608, "cat": "r0"}, "2ヶ月": {"val": 266400, "cat": "g2"}, "3ヶ月": {"val": 177600, "cat": "q1"}}}, "オ": {"テゼスパイア": {"1ヶ月": {"val": 295200, "cat": "g2"}, "2ヶ月": {"val": 147600, "cat": "g2"}, "3ヶ月": {"val": 98400, "cat": "q1"}}, "ファセンラ": {"2ヶ月": {"val": 147600, "cat": "g2"}}, "デュピクセント": {"1ヶ月": {"val": 295200, "cat": "g2"}, "2ヶ月": {"val": 147600, "cat": "g2"}, "3ヶ月": {"val": 98400, "cat": "q1"}}, "ヌーカラ": {"1ヶ月": {"val": 295200, "cat": "g2"}, "2ヶ月": {"val": 147600, "cat": "g2"}, "3ヶ月": {"val": 98400, "cat": "q1"}}}}, "70": {"現役並みⅢ": {"テゼスパイア": {"1ヶ月": {"val": 615553, "cat": "r0"}, "2ヶ月": {"val": 627253, "cat": "r0"}, "3ヶ月": {"val": 623353, "cat": "r0"}}, "ファセンラ": {"2ヶ月": {"val": 603556, "cat": "r0"}}, "デュピクセント": {"1ヶ月": {"val": 438040, "cat": "r0"}, "2ヶ月": {"val": 398045, "cat": "r0"}, "3ヶ月": {"val": 394145, "cat": "r0"}}, "ヌーカラ": {"1ヶ月": {"val": 575608, "cat": "r0"}, "2ヶ月": {"val": 587308, "cat": "r0"}, "3ヶ月": {"val": 583408, "cat": "r0"}}}, "現役並みⅡ": {"テゼスパイア": {"1ヶ月": {"val": 615553, "cat": "r0"}, "2ヶ月": {"val": 627253, "cat": "r0"}, "3ヶ月": {"val": 623353, "cat": "r0"}}, "ファセンラ": {"2ヶ月": {"val": 603556, "cat": "r0"}}, "デュピクセント": {"1ヶ月": {"val": 438040, "cat": "r0"}, "2ヶ月": {"val": 398045, "cat": "r0"}, "3ヶ月": {"val": 394145, "cat": "r0"}}, "ヌーカラ": {"1ヶ月": {"val": 575608, "cat": "r0"}, "2ヶ月": {"val": 587308, "cat": "r0"}, "3ヶ月": {"val": 583408, "cat": "r0"}}}, "現役並みⅠ": {"テゼスパイア": {"1ヶ月": {"val": 615553, "cat": "r0"}, "2ヶ月": {"val": 266400, "cat": "g2"}, "3ヶ月": {"val": 177600, "cat": "q1"}}, "ファセンラ": {"2ヶ月": {"val": 266400, "cat": "g2"}}, "デュピクセント": {"1ヶ月": {"val": 386345, "cat": "r0"}, "2ヶ月": {"val": 398045, "cat": "r0"}, "3ヶ月": {"val": 177600, "cat": "q1"}}, "ヌーカラ": {"1ヶ月": {"val": 575608, "cat": "r0"}, "2ヶ月": {"val": 266400, "cat": "g2"}, "3ヶ月": {"val": 177600, "cat": "q1"}}}, "一般": {"テゼスパイア": {"1ヶ月": {"val": 144000, "cat": "r0"}, "2ヶ月": {"val": 108000, "cat": "r0"}, "3ヶ月": {"val": 72000, "cat": "r0"}}, "ファセンラ": {"2ヶ月": {"val": 108000, "cat": "r0"}}, "デュピクセント": {"1ヶ月": {"val": 144000, "cat": "r0"}, "2ヶ月": {"val": 108000, "cat": "r0"}, "3ヶ月": {"val": 72000, "cat": "r0"}}, "ヌーカラ": {"1ヶ月": {"val": 144000, "cat": "r0"}, "2ヶ月": {"val": 108000, "cat": "r0"}, "3ヶ月": {"val": 72000, "cat": "r0"}}}, "非課税": {"テゼスパイア": {"1ヶ月": {"val": 96000, "cat": "r0"}, "2ヶ月": {"val": 48000, "cat": "r0"}, "3ヶ月": {"val": 32000, "cat": "r0"}}, "ファセンラ": {"2ヶ月": {"val": 48000, "cat": "r0"}}, "デュピクセント": {"1ヶ月": {"val": 96000, "cat": "r0"}, "2ヶ月": {"val": 48000, "cat": "r0"}, "3ヶ月": {"val": 32000, "cat": "r0"}}, "ヌーカラ": {"1ヶ月": {"val": 96000, "cat": "r0"}, "2ヶ月": {"val": 48000, "cat": "r0"}, "3ヶ月": {"val": 32000, "cat": "r0"}}}}}};
+
+const state = {mode:'switch', age:'69', kubun:null, drug:null, interval:null};
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fmt = n => Math.round(n).toLocaleString('ja-JP');
+const $ = id => document.getElementById(id);
+
+/* ---------- 計算ロジック（仕様書 §3.5 純関数）---------- */
+function calcSwitch(age, kubun, drug, interval){
+  const b = DATA.before[age][kubun][drug][interval];
+  const e = DATA.exi[age][kubun];
+  const N = e.normalDose, T = e.taDose;
+  const R = N * 2;
+  const P = T != null ? T * 2 : null;
+  const Q = T != null ? T + N : null;
+  let afterFirstYear, carryover, breakdownFirst;
+  if (b.cat === 'g2'){ afterFirstYear = P; carryover = 2; breakdownFirst = '多数回該当 ¥'+fmt(T)+' × 2回'; }
+  else if (b.cat === 'q1'){ afterFirstYear = Q; carryover = 1; breakdownFirst = '多数回該当 ¥'+fmt(T)+' ＋ 通常 ¥'+fmt(N); }
+  else { afterFirstYear = R; carryover = 0; breakdownFirst = '通常上限 ¥'+fmt(N)+' × 2回'; }
+  const afterOngoing = R;
+  return {
+    beforeAnnual: b.val, cat: b.cat,
+    afterFirstYear, afterOngoing,
+    savingFirstYear: b.val - afterFirstYear,
+    savingOngoing: b.val - afterOngoing,
+    carryover, breakdownFirst,
+    breakdownOngoing: '通常上限 ¥'+fmt(N)+' × 2回'
+  };
+}
+function calcNaive(age, kubun){
+  const e = DATA.exi[age][kubun];
+  return { annual: e.normalDose * 2, perDose: e.normalDose };
+}
+
+/* ---------- 整形ヘルパー ---------- */
+const yen = n => '<span class="yen">¥</span><span class="num cup" data-val="'+Math.round(n)+'">0</span>';
+const yenStatic = n => '<span class="yen">¥</span><span class="num">'+fmt(n)+'</span>';
+
+/* ---------- 入力UI ---------- */
+function buildAge(){
+  $('ageSeg').innerHTML='';
+  [['69','69歳以下'],['70','70歳以上']].forEach(([v,l])=>{
+    const b=document.createElement('button'); b.textContent=l; b.setAttribute('aria-pressed', state.age===v);
+    if(state.age===v) b.classList.add('on');
+    b.onclick=()=>{state.age=v; state.kubun=null; buildAge(); buildKubun(); render();};
+    $('ageSeg').appendChild(b);
+  });
+}
+function buildKubun(){
+  const row=$('kubunRow'); row.innerHTML='';
+  DATA.kubunOrder[state.age].forEach(k=>{
+    const c=document.createElement('button'); c.className='chip'+(state.kubun===k?' on':'');
+    c.setAttribute('aria-pressed', state.kubun===k);
+    c.innerHTML='<span class="k">'+k+'</span><span class="s">'+DATA.income[state.age][k]+'</span>';
+    c.onclick=()=>{state.kubun=k; buildKubun(); render();};
+    row.appendChild(c);
+  });
+}
+function buildDrug(){
+  const row=$('drugRow'); row.innerHTML='';
+  Object.keys(DATA.drugs).forEach(d=>{
+    const c=document.createElement('button'); c.className='chip'+(state.drug===d?' on':'');
+    c.setAttribute('aria-pressed', state.drug===d);
+    c.innerHTML='<span class="k">'+d+'</span>';
+    c.onclick=()=>{
+      state.drug=d;
+      const ivs=DATA.drugs[d];
+      if(!ivs.includes(state.interval)) state.interval = ivs.length===1?ivs[0]:null;
+      buildDrug(); buildInterval(); render();
+    };
+    row.appendChild(c);
+  });
+}
+function buildInterval(){
+  const seg=$('intervalSeg'); seg.innerHTML='';
+  const all=['1ヶ月','2ヶ月','3ヶ月'];
+  const avail = state.drug ? DATA.drugs[state.drug] : all;
+  all.forEach(iv=>{
+    const b=document.createElement('button'); b.textContent=iv+'処方';
+    if(!avail.includes(iv)){ b.disabled=true; b.title='この薬剤では選択できません'; }
+    if(state.interval===iv) b.classList.add('on');
+    b.setAttribute('aria-pressed', state.interval===iv);
+    b.onclick=()=>{state.interval=iv; buildInterval(); render();};
+    seg.appendChild(b);
+  });
+}
+
+/* ---------- 結果 ---------- */
+function placeholder(msg){
+  return '<div class="placeholder"><div class="big">¥ —</div><p>'+msg+'</p></div>';
+}
+function savingAmt(v, lead){
+  if(v>0) return '<span class="save-amt down">▲'+yenStatic(v)+'<span style="font-size:.62em;margin-left:3px"> 軽減</span></span>';
+  if(v<0) return '<span class="save-amt up">+'+yenStatic(-v)+'<span style="font-size:.62em;margin-left:3px"> 増</span></span>';
+  return '<span class="save-amt flat">変わらず</span>';
+}
+
+/* The Drop バー（金額に比例した高さ＋差分をオレンジで強調） */
+function dropBars(before, afterFirst, afterOngoing, hasCarry){
+  const M = Math.max(before, afterFirst, afterOngoing) || 1;
+  const pct = v => (v/M*100);
+  function afterCol(label, after){
+    const now = pct(after);
+    let band='';
+    if(after < before){
+      const h = pct(before)-now;
+      band = '<div class="seg-fill cut" data-h="'+h+'" style="bottom:'+now+'%"></div>'+
+             '<div class="bar-top cut" style="bottom:'+pct(before)+'%">▲¥'+fmt(before-after)+'</div>';
+    } else if(after > before){
+      const h = now - pct(before);
+      band = '<div class="seg-fill up" data-h="'+h+'" style="bottom:'+pct(before)+'%"></div>'+
+             '<div class="bar-top up" style="bottom:'+now+'%">+¥'+fmt(after-before)+'</div>';
+    }
+    return '<div class="bar"><div class="track">'+
+      '<div class="seg-fill now" data-h="'+now+'" style="bottom:0"></div>'+band+
+      '</div><div class="bar-val">'+yenStatic(after)+'</div><div class="bar-lab">'+label+'</div></div>';
+  }
+  const beforeCol = '<div class="bar"><div class="track">'+
+      '<div class="seg-fill base" data-h="'+pct(before)+'" style="bottom:0"></div>'+
+      '</div><div class="bar-val">'+yenStatic(before)+'</div><div class="bar-lab">現在の薬剤</div></div>';
+  let cols = beforeCol + afterCol('エキシ 初年度', afterFirst);
+  if(hasCarry && afterOngoing!==afterFirst) cols += afterCol('エキシ 2年目〜', afterOngoing);
+  return '<div class="drop"><div class="drop-cap">年間自己負担の比較（バー高さ＝金額。オレンジ＝軽減分）</div>'+
+         '<div class="bars">'+cols+'</div></div>';
+}
+
+function render(){
+  const r=$('results');
+  if(state.mode==='naive'){
+    if(!state.kubun){ r.innerHTML=placeholder('年齢と適応区分を選んでください'); return; }
+    const n=calcNaive(state.age, state.kubun);
+    r.innerHTML =
+      '<div class="naive-hero">'+
+        '<div class="nl">エキシデンサー　年間自己負担</div>'+
+        '<div class="nbig">'+yen(n.annual)+'</div>'+
+        '<div class="nper">1回あたり '+yenStatic(n.perDose)+' × 年2回投与</div>'+
+        '<div class="nnote">新規（ナイーブ）導入のため、多数回該当の引き継ぎはなく、初年度から通常上限額×2回で一定です。</div>'+
+      '</div>';
+    animate(); return;
+  }
+  // switch
+  if(!state.kubun || !state.drug || !state.interval){
+    r.innerHTML=placeholder('左の4項目（年齢・区分・薬剤・処方間隔）を選んでください'); return;
+  }
+  const c = calcSwitch(state.age, state.kubun, state.drug, state.interval);
+  const hasCarry = c.cat!=='r0';
+  const badgeMap = { g2:'多数回該当 引き継ぎ 2回', q1:'多数回該当 引き継ぎ 1回', r0:'引き継ぎなし' };
+
+  let afterRows;
+  if(hasCarry){
+    afterRows =
+      '<div class="arow"><span class="awhen">初年度</span><span class="aamt">'+yen(c.afterFirstYear)+'</span>'+
+        '<span class="badge '+c.cat+'">'+badgeMap[c.cat]+'</span></div>'+
+      '<div class="brk">'+c.breakdownFirst+'</div>'+
+      '<div class="arow"><span class="awhen">2年目以降</span><span class="aamt">'+yen(c.afterOngoing)+'</span></div>'+
+      '<div class="brk">'+c.breakdownOngoing+'</div>';
+  } else {
+    afterRows =
+      '<div class="arow"><span class="awhen">年間（初年度〜）</span><span class="aamt">'+yen(c.afterOngoing)+'</span>'+
+        '<span class="badge r0">引き継ぎなし</span></div>'+
+      '<div class="brk">'+c.breakdownOngoing+'</div>';
+  }
+
+  let savingRows;
+  if(hasCarry){
+    savingRows =
+      '<div class="srow lead"><span class="when">初年度</span>'+savingAmt(c.savingFirstYear,true)+'</div>'+
+      '<div class="srow"><span class="when">2年目以降（毎年）</span>'+savingAmt(c.savingOngoing)+'</div>';
+  } else {
+    savingRows = '<div class="srow lead"><span class="when">毎年</span>'+savingAmt(c.savingOngoing,true)+'</div>';
+  }
+
+  r.innerHTML =
+    '<div class="rcard"><div class="rlabel">現在の薬剤　年間自己負担</div>'+
+      '<div class="rsub">'+state.drug+'（'+state.interval+'処方）</div>'+
+      '<div class="ramt">'+yenStatic(c.beforeAnnual)+'</div></div>'+
+    dropBars(c.beforeAnnual, c.afterFirstYear, c.afterOngoing, hasCarry)+
+    '<div class="rcard after"><div class="rlabel">エキシデンサー　切り替え後</div>'+
+      '<div class="rows">'+afterRows+'</div></div>'+
+    '<div class="save"><h3>年間軽減額（現在の薬剤との差）</h3>'+savingRows+
+      '<div class="snote">初年度は多数回該当の引き継ぎ分だけ安く、2年目以降は通常上限×2に戻ります。'+
+      (c.savingOngoing<0?'　※この条件ではエキシデンサーのほうが自己負担は大きくなります。':'')+'</div></div>';
+  animate();
+}
+
+/* ---------- モーション（count-up＋バー伸長）---------- */
+function animate(){
+  // バー伸長
+  document.querySelectorAll('.seg-fill').forEach(el=>{
+    const h = el.getAttribute('data-h');
+    if(h==null) return;
+    if(reduce){ el.style.height = h+'%'; return; }
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ el.style.height = h+'%'; }));
+  });
+  // count-up
+  document.querySelectorAll('.num.cup').forEach(el=>{
+    const target = +el.getAttribute('data-val');
+    if(reduce){ el.textContent = fmt(target); return; }
+    const dur = 450, start = performance.now();
+    function step(now){
+      const t = Math.min(1,(now-start)/dur);
+      const e = 1-Math.pow(1-t,3); // ease-out cubic
+      el.textContent = fmt(target*e);
+      if(t<1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+function setMode(m){
+  state.mode=m;
+  document.querySelectorAll('.modebtn').forEach(x=>{
+    const on = x.dataset.mode===m;
+    x.classList.toggle('active',on); x.setAttribute('aria-selected',on);
+  });
+  const show = (m==='switch');
+  document.querySelector('.drugField').classList.toggle('hidden',!show);
+  document.querySelector('.intervalField').classList.toggle('hidden',!show);
+  render();
+}
+document.querySelectorAll('.modebtn').forEach(x=>x.onclick=()=>setMode(x.dataset.mode));
+
+buildAge(); buildKubun(); buildDrug(); buildInterval(); render();
+</script>
+</body>
+</html>
